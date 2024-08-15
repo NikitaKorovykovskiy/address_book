@@ -39,6 +39,10 @@
 # Второе задание
 
 Создал 2 таблицы с данными из условия
+
+## Решение
+Решение заключается в том, задать индексы на поля учавствующие в сравнении и сравнивании двух таблиц по условию: название 1 таблицы = названию 2 таблицы при отрезании всего что начинается с точки.
+
 См изображение наполнение БД
 ![Наполнение БД](./Наполнение%20БД.png)
 
@@ -47,3 +51,28 @@
 ![Время выполнения](./Скрипт%20и%20время%20выполнения.png)
 
 Сам скрипт в файлe script.sql
+
+И приложен ниже
+```
+-- Начало транзакции
+BEGIN;
+
+-- Создание вспомогательной таблицы с базовыми именами и статусами из plans_shortname
+CREATE TABLE IF NOT EXISTS shortname_base1 AS
+SELECT name AS base_name, 
+       status
+FROM plans_shortname;
+
+-- Создание индекса на вспомогательной таблице для ускорения поиска
+CREATE INDEX IF NOT EXISTS idx_base_name ON shortname_base1 (base_name);
+
+-- Обновление статусов в plans_fullname на основе данных из shortname_base1
+UPDATE plans_fullname fn
+SET status = sb.status
+FROM shortname_base1 sb
+WHERE LEFT(fn.full_name, LENGTH(fn.full_name) - POSITION('.' IN REVERSE(fn.full_name))) = sb.base_name
+  AND fn.status IS NULL;
+
+-- Завершение транзакции
+COMMIT;
+```
