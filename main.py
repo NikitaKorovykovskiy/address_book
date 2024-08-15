@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 import redis.asyncio as redis
 from models import Address, MessageResponse, Settings, WriteAddress
 from typing import AsyncGenerator
-
+from pydantic import ValidationError
 
 settings = Settings()
 
@@ -42,15 +42,21 @@ async def write_or_update_address(
         else:
             await redis_conn.set(data.phone, data.address)
             return MessageResponse(message="Адрес успешно добавлен")
-    except redis.ConnectionError:
-        raise HTTPException(status_code=500, detail="Ошибка подключения к Redis")
+    except redis.RedisError as e:
+        raise HTTPException(status_code=500, detail="Ошибка Redis: " + str(e))
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=400, detail="Ошибка валидации данных: " + str(e)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Неизвестная ошибка: " + str(e))
 
 
 @app.get("/check_data/", status_code=200, summary="Проверить адрес")
 async def get_address(
     phone: str,
     redis_conn: redis.Redis = Depends(get_redis_connection),
-) -> Address | dict:
+) -> MessageResponse | Address:
     try:
         address = await redis_conn.get(phone)
         if not address:
